@@ -4,13 +4,14 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
 type AuthContextType = {
   user: User | null
   supabase: SupabaseClient | null
   loading: boolean
+  error: string | null
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   supabase: null,
   loading: true,
+  error: null,
   signIn: async () => {},
   signOut: async () => {},
   signUp: async () => {},
@@ -33,7 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -83,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUser(null)
           // Redirect to login if not on auth pages
-          if (!router.pathname?.includes("/auth/")) {
+          if (!pathname?.includes("/auth/")) {
             router.push("/auth/login")
           }
         }
@@ -96,19 +100,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Error initializing Supabase client:", error)
       setLoading(false)
     }
-  }, [router])
+  }, [router, pathname])
 
   const signIn = async (email: string, password: string) => {
     if (!supabase) return
 
     try {
       setLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({
+      setError(null) // Clear any previous errors
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) throw error
+      if (authError) {
+        setError(authError.message)
+        throw authError
+      }
 
       toast({
         title: "Signed in successfully",
@@ -117,9 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       router.push("/chat")
     } catch (error: any) {
+      const errorMessage = error.message || "Failed to sign in"
+      setError(errorMessage)
       toast({
         title: "Authentication error",
-        description: error.message || "Failed to sign in",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -132,7 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setLoading(true)
-      const { error } = await supabase.auth.signUp({
+      setError(null) // Clear any previous errors
+
+      const { error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -140,16 +153,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       })
 
-      if (error) throw error
+      if (authError) {
+        setError(authError.message)
+        throw authError
+      }
 
       toast({
         title: "Verification email sent",
         description: "Please check your email to verify your account",
       })
     } catch (error: any) {
+      const errorMessage = error.message || "Failed to sign up"
+      setError(errorMessage)
       toast({
         title: "Registration error",
-        description: error.message || "Failed to sign up",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -161,6 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) return
 
     try {
+      setError(null) // Clear any previous errors
       await supabase.auth.signOut()
       toast({
         title: "Signed out",
@@ -168,9 +187,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       router.push("/auth/login")
     } catch (error: any) {
+      const errorMessage = error.message || "Failed to sign out"
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to sign out",
+        description: errorMessage,
         variant: "destructive",
       })
     }
@@ -181,20 +202,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setLoading(true)
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      setError(null) // Clear any previous errors
+
+      const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
       })
 
-      if (error) throw error
+      if (authError) {
+        setError(authError.message)
+        throw authError
+      }
 
       toast({
         title: "Password reset email sent",
         description: "Please check your email for the reset link",
       })
     } catch (error: any) {
+      const errorMessage = error.message || "Failed to send reset email"
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: error.message || "Failed to send reset email",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -208,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         supabase,
         loading,
+        error,
         signIn,
         signOut,
         signUp,

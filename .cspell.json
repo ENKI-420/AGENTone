@@ -1,0 +1,19 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "chartjs",
+    "cmdk",
+    "embla",
+    "sonner",
+    "supabase",
+    "tabler",
+    "vaul"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    ".git/**"
+  ]
+}

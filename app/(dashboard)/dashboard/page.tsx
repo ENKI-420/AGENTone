@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,23 +8,49 @@ import { Input } from "@/components/ui/input"
 import { PatientData } from "@/components/patient/patient-data"
 import { IconSearch, IconUser, IconUsers, IconFileAnalytics, IconDna } from "@tabler/icons-react"
 import { useAuth } from "@/components/auth/auth-provider"
+import axios from "axios"
+
+// WebSocket for real-time updates (keep this running for fetching new Beaker data)
+const socket = new WebSocket("wss://your-realtime-server.com")
 
 export default function DashboardPage() {
   const [activePatientId, setActivePatientId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const { user } = useAuth()
+  const [patients, setPatients] = useState<any[]>([]) // To hold real patient data
+  const [loading, setLoading] = useState(false)
 
-  // Mock patient data for demonstration
-  const mockPatients = [
-    { id: "patient-001", name: "John Doe", dob: "1975-05-15", mrn: "MRN12345" },
-    { id: "patient-002", name: "Jane Smith", dob: "1982-11-23", mrn: "MRN67890" },
-    { id: "patient-003", name: "Robert Johnson", dob: "1968-03-08", mrn: "MRN24680" },
-  ]
+  // Fetch patient data from your backend (ideally via API call)
+  const fetchPatientData = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get("/api/patients") // Assume an API endpoint that returns real patient data
+      setPatients(response.data)
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching patient data", error)
+      setLoading(false)
+    }
+  }
 
-  const filteredPatients = mockPatients.filter(
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    socket.onmessage = (event) => {
+      const newData = JSON.parse(event.data)
+      setPatients((prevData) => [newData, ...prevData]) // Add new data to the front of the list
+    }
+
+    fetchPatientData() // Fetch patients when component is mounted
+
+    return () => {
+      socket.close() // Cleanup the socket connection when component is unmounted
+    }
+  }, [])
+
+  const filteredPatients = patients.filter(
     (patient) =>
       patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.mrn.toLowerCase().includes(searchQuery.toLowerCase()),
+      patient.mrn.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -35,6 +61,7 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Welcome back, {user?.email}</p>
         </header>
 
+        {/* Patient Search */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-1 space-y-6">
             <Card>
@@ -89,29 +116,11 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <div className="text-sm font-medium">Total Patients</div>
-                    <div className="text-2xl font-bold">128</div>
+                    <div className="text-2xl font-bold">{patients.length}</div>
                   </div>
                 </div>
 
-                <div className="flex items-center">
-                  <div className="bg-primary/10 p-2 rounded-full mr-3">
-                    <IconFileAnalytics className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">Reports Generated</div>
-                    <div className="text-2xl font-bold">47</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="bg-primary/10 p-2 rounded-full mr-3">
-                    <IconDna className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">Genomic Analyses</div>
-                    <div className="text-2xl font-bold">32</div>
-                  </div>
-                </div>
+                {/* Add additional stats like reports and genomic analysis */}
               </CardContent>
             </Card>
           </div>
@@ -137,4 +146,3 @@ export default function DashboardPage() {
     </ProtectedRoute>
   )
 }
-

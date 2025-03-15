@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -98,4 +96,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
